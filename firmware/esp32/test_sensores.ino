@@ -1,16 +1,19 @@
 #include <Wire.h>
+#include <Adafruit_BMP085.h>
 
 /*
  * Prueba para ESP32 con tres sensores:
- * 1. SHT30 por I2C
+ * 1. BMP180 por I2C (temperatura + presión)
  * 2. MQ-2 por ADC
  * 3. Sharp GP2Y1014AU0F por GPIO + ADC
-/*
+ */
 
-/* Pin bus I2C usado por el SHT30. */
-static const int SH30_SDA_PIN = 21;
-static const int SH30_SCL_PIN = 22;
-static const int SHT30_ADDR = 0x44;
+/* Pin bus I2C usado por el BMP180. */
+static const int BMP180_SDA_PIN = 21;
+static const int BMP180_SCL_PIN = 22;
+
+/* Objeto sensor BMP180 */
+static Adafruit_BMP085 bmp;
 
 /* Pin ADC donde se conecta la salida analogica AOUT del MQ-2. */
 static const int MQ2_ADC_PIN = 34;
@@ -36,48 +39,24 @@ static float adcRawToVoltage(int raw)
 }
 
 /*
- * Lee una medicion simple del SHT30.
+ * Lee una medicion del BMP180.
  *
  * Parametros de salida:
  * - temperatureC: temperatura en grados Celsius.
- * - humidityRh: humedad relativa en porcentaje.
+ * - pressurePa: presion atmosferica en Pascales.
  *
  * Devuelve:
  * - true si el sensor respondio correctamente.
  * - false si fallo la comunicacion I2C.
  */
-static bool readSht30(float *temperatureC, float *humidityRh)
+static bool readBmp180(float *temperatureC, float *pressurePa)
 {
-  /* Comando de medicion. */
-  const uint8_t command[2] = {0x24, 0x00};
+  *temperatureC = bmp.readTemperature();
+  *pressurePa = bmp.readPressure();
 
-  Wire.beginTransmission(SHT30_ADDR);
-  Wire.write(command, sizeof(command));
-  if (Wire.endTransmission() != 0) {
+  if (*temperatureC <= 0 && *pressurePa <= 0) {
     return false;
   }
-  delay(20);
-
-  /* Pide 6 bytes: 2 de temperatura, 1 CRC, 2 de humedad y 1 CRC. */
-  if (Wire.requestFrom(SHT30_ADDR, 6) != 6) {
-    return false;
-  }
-
-  /* Reconstruye la temperatura cruda uniendo dos bytes consecutivos. */
-  const uint16_t rawTemp = ((uint16_t)Wire.read() << 8) | Wire.read();
-
-  Wire.read();
-
-  /* Reconstruye la humedad cruda uniendo dos bytes consecutivos. */
-  const uint16_t rawHum = ((uint16_t)Wire.read() << 8) | Wire.read();
-
-  Wire.read();
-
-  /* Convierte el valor crudo de temperatura usando la formula de la documentacion. */
-  *temperatureC = -45.0f + (175.0f * ((float)rawTemp / 65535.0f));
-
-  /* Convierte el valor crudo de humedad a porcentaje relativo. */
-  *humidityRh = 100.0f * ((float)rawHum / 65535.0f);
 
   return true;
 }
@@ -125,7 +104,12 @@ void setup()
 
   delay(1000);
 
-  Wire.begin(SH30_SDA_PIN, SH30_SCL_PIN);
+  Wire.begin(BMP180_SDA_PIN, BMP180_SCL_PIN);
+
+  if (!bmp.begin()) {
+    Serial.println("BMP180 no encontrado! Verificar conexiones.");
+    while (1) delay(1000);
+  }
 
   pinMode(SHARP_LED_PIN, OUTPUT);
 
@@ -135,9 +119,9 @@ void setup()
 
   Serial.println("Iniciando prueba de sensores");
   Serial.print("I2C OK en SDA=");
-  Serial.print(SH30_SDA_PIN);
+  Serial.print(BMP180_SDA_PIN);
   Serial.print(" SCL=");
-  Serial.println(SH30_SCL_PIN);
+  Serial.println(BMP180_SCL_PIN);
   Serial.println("ADC OK para MQ-2 y Sharp");
   Serial.print("GPIO Sharp OK en GPIO=");
   Serial.println(SHARP_LED_PIN);
@@ -148,20 +132,20 @@ void setup()
 void loop()
 {
   float temperatureC = 0.0f;
-  float humidityRh = 0.0f;
+  float pressurePa = 0.0f;
 
-  const bool sht30_is_Ok = readSht30(&temperatureC, &humidityRh);
+  const bool bmp180_is_ok = readBmp180(&temperatureC, &pressurePa);
 
   const int mq2Raw = readMq2Raw();
   const int sharpRaw = readSharpRaw();
-  if (sht30_is_Ok) {
-    Serial.print("SHT30 -> Temp: ");
+  if (bmp180_is_ok) {
+    Serial.print("BMP180 -> Temp: ");
     Serial.print(temperatureC, 2);
-    Serial.print(" C | Humedad: ");
-    Serial.print(humidityRh, 2);
-    Serial.println(" %");
+    Serial.print(" C | Presion: ");
+    Serial.print(pressurePa, 0);
+    Serial.println(" Pa");
   } else {
-    Serial.println("SHT30 sin respuesta");
+    Serial.println("BMP180 sin respuesta");
   }
 
   /* Muestra el valor crudo del MQ-2 y un voltaje aproximado para referencia. */
