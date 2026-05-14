@@ -27,7 +27,7 @@ El repositorio contempla:
 
 - `ESP32`
 - `Arduino Framework en C++`
-- sensor `SHT30`
+- sensor `BMP180`
 - sensor `MQ-2`
 - sensor `Sharp GP2Y1014AU0F`
 
@@ -39,8 +39,7 @@ El repositorio contempla:
 ├── .gitignore
 ├── firmware/
 │   └── esp32/
-│       └── sensores_test/
-│           └── sensores_test.ino
+│       └── test_sensores.ino
 ├── docs/
 │   ├── informes/
 │   │   ├── 01_Informe_de_Viabilidad.pdf

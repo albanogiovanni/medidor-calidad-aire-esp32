@@ -24,9 +24,12 @@ static const int SHARP_LED_PIN = 25;
 static const int SHARP_LED_ON_LEVEL = LOW;
 static const int SHARP_LED_OFF_LEVEL = HIGH;
 
-
 static const float ADC_MAX_READING = 4095.0f;
 static const float ADC_VREF_ESTIMATE = 3.3f;
+static const int MQ2_SAMPLE_COUNT = 8;
+static const unsigned long LOOP_DELAY_MS = 5000;
+
+static bool bmp180Available = false;
 
 /*
  * Convierte una lectura ADC cruda a un voltaje aproximado.
@@ -45,20 +48,11 @@ static float adcRawToVoltage(int raw)
  * - temperatureC: temperatura en grados Celsius.
  * - pressurePa: presion atmosferica en Pascales.
  *
- * Devuelve:
- * - true si el sensor respondio correctamente.
- * - false si fallo la comunicacion I2C.
  */
-static bool readBmp180(float *temperatureC, float *pressurePa)
+static void readBmp180(float *temperatureC, float *pressurePa)
 {
   *temperatureC = bmp.readTemperature();
   *pressurePa = bmp.readPressure();
-
-  if (*temperatureC <= 0 && *pressurePa <= 0) {
-    return false;
-  }
-
-  return true;
 }
 
 /*
@@ -68,11 +62,11 @@ static bool readBmp180(float *temperatureC, float *pressurePa)
 static int readMq2Raw(void)
 {
   int total = 0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < MQ2_SAMPLE_COUNT; i++) {
     total += analogRead(MQ2_ADC_PIN);
     delayMicroseconds(200);
   }
-  return total / 8;
+  return total / MQ2_SAMPLE_COUNT;
 }
 
 /*
@@ -89,14 +83,12 @@ static int readSharpRaw(void)
 
   delayMicroseconds(40);
 
-
   digitalWrite(SHARP_LED_PIN, SHARP_LED_OFF_LEVEL);
 
   delayMicroseconds(9680);
 
   return raw;
 }
-
 
 void setup()
 {
@@ -106,9 +98,9 @@ void setup()
 
   Wire.begin(BMP180_SDA_PIN, BMP180_SCL_PIN);
 
-  if (!bmp.begin()) {
+  bmp180Available = bmp.begin();
+  if (!bmp180Available) {
     Serial.println("BMP180 no encontrado! Verificar conexiones.");
-    while (1) delay(1000);
   }
 
   pinMode(SHARP_LED_PIN, OUTPUT);
@@ -128,17 +120,18 @@ void setup()
   Serial.println();
 }
 
-
 void loop()
 {
   float temperatureC = 0.0f;
   float pressurePa = 0.0f;
 
-  const bool bmp180_is_ok = readBmp180(&temperatureC, &pressurePa);
+  if (bmp180Available) {
+    readBmp180(&temperatureC, &pressurePa);
+  }
 
   const int mq2Raw = readMq2Raw();
   const int sharpRaw = readSharpRaw();
-  if (bmp180_is_ok) {
+  if (bmp180Available) {
     Serial.print("BMP180 -> Temp: ");
     Serial.print(temperatureC, 2);
     Serial.print(" C | Presion: ");
@@ -164,5 +157,5 @@ void loop()
 
   Serial.println();
 
-  delay(5000);
+  delay(LOOP_DELAY_MS);
 }

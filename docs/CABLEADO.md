@@ -1,17 +1,13 @@
-## 1. SHT30
+## 1. BMP180
 
 Conexion
 
-| SHT30 | ESP32  |
-|-------|--------|
-| VIN   | 5 V    |
-| GND   | GND    |
-| SDA   | GPIO21 |
-| SCL   | GPIO22 |
-
-Notas importantes:
-- En revision!!!
-- Antes de conectar `VIN` al `ESP32`, verifica con multimetro.
+| BMP180 | ESP32  |
+|--------|--------|
+| VIN    | 5V     |
+| GND    | GND    |
+| SDA    | GPIO21 |
+| SCL    | GPIO22 |
 
 ## 2. MQ-2
 
@@ -23,6 +19,7 @@ Notas importantes:
 
 Notas importantes:
 - El `MQ-2` necesita tiempo de calentamiento para lecturas mas estables.
+- Verifica que `AOUT` no supere `3.3V` al entrar al `ESP32`; algunos modulos alimentados con `5V` pueden requerir divisor de tension o acondicionamiento.
 
 ## 3. Sharp GP2Y1014AU0F
 
@@ -32,7 +29,7 @@ Conexion logica usada en el firmware:
 |-------|-------|
 | VLED/LED control del circuito | GPIO25 |
 | Vo | GPIO35 |
-| VCC | segun tu circuito |
+| VCC | 5V |
 | GND | GND |
 
 Notas importantes:
