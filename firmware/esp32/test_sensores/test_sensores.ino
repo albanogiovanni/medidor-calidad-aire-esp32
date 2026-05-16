@@ -1,24 +1,20 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
+#include <WiFi.h>
+#include <FirebaseESP32.h>
+#include "keys.h"
 
-/*
- * Prueba para ESP32 con tres sensores:
- * 1. BMP180 por I2C (temperatura + presión)
- * 2. MQ-2 por ADC
- * 3. Sharp GP2Y1014AU0F por GPIO + ADC
- */
+// Objetos de Firebase
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
 
-/* Pin bus I2C usado por el BMP180. */
+/* Pines y sensores originales */
 static const int BMP180_SDA_PIN = 21;
 static const int BMP180_SCL_PIN = 22;
-
-/* Objeto sensor BMP180 */
 static Adafruit_BMP085 bmp;
 
-/* Pin ADC donde se conecta la salida analogica AOUT del MQ-2. */
 static const int MQ2_ADC_PIN = 34;
-
-/* Pin ADC donde se conecta la salida analogica Vo del sensor Sharp. */
 static const int SHARP_ADC_PIN = 35;
 static const int SHARP_LED_PIN = 25;
 static const int SHARP_LED_ON_LEVEL = LOW;
@@ -31,36 +27,17 @@ static const unsigned long LOOP_DELAY_MS = 5000;
 
 static bool bmp180Available = false;
 
-/*
- * Convierte una lectura ADC cruda a un voltaje aproximado.
- * Sirve solo para tener una referencia visual rapida en terminal.
- */
-static float adcRawToVoltage(int raw)
-{
-  /* Divide el valor crudo entre el maximo ADC y lo escala a 3.3V. */
+/* Funciones de lectura originales */
+static float adcRawToVoltage(int raw) {
   return (raw / ADC_MAX_READING) * ADC_VREF_ESTIMATE;
 }
 
-/*
- * Lee una medicion del BMP180.
- *
- * Parametros de salida:
- * - temperatureC: temperatura en grados Celsius.
- * - pressurePa: presion atmosferica en Pascales.
- *
- */
-static void readBmp180(float *temperatureC, float *pressurePa)
-{
+static void readBmp180(float *temperatureC, float *pressurePa) {
   *temperatureC = bmp.readTemperature();
   *pressurePa = bmp.readPressure();
 }
 
-/*
- * Lee el MQ-2 varias veces y devuelve un promedio simple.
- * Esto ayuda a que la lectura se vea menos ruidosa en terminal.
- */
-static int readMq2Raw(void)
-{
+static int readMq2Raw(void) {
   int total = 0;
   for (int i = 0; i < MQ2_SAMPLE_COUNT; i++) {
     total += analogRead(MQ2_ADC_PIN);
@@ -69,59 +46,54 @@ static int readMq2Raw(void)
   return total / MQ2_SAMPLE_COUNT;
 }
 
-/*
- * Lee el sensor Sharp usando una secuencia minima de temporizacion.
- * La idea es encender el LED IR, esperar un tiempo corto y leer el ADC
- * cerca del instante util sugerido para este tipo de sensor.
- */
-static int readSharpRaw(void)
-{
+static int readSharpRaw(void) {
   int raw = 0;
   digitalWrite(SHARP_LED_PIN, SHARP_LED_ON_LEVEL);
   delayMicroseconds(280);
   raw = analogRead(SHARP_ADC_PIN);
-
   delayMicroseconds(40);
-
   digitalWrite(SHARP_LED_PIN, SHARP_LED_OFF_LEVEL);
-
   delayMicroseconds(9680);
-
   return raw;
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-
   delay(1000);
 
-  Wire.begin(BMP180_SDA_PIN, BMP180_SCL_PIN);
+  // Conexión Wi-Fi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Conectando a WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConectado!");
 
+  // Configuración Firebase
+  config.host = FIREBASE_HOST;
+  config.signer.tokens.legacy_token = FIREBASE_AUTH;
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+
+  /* BMP180 */
+  Wire.begin(BMP180_SDA_PIN, BMP180_SCL_PIN);
   bmp180Available = bmp.begin();
+
   if (!bmp180Available) {
-    Serial.println("BMP180 no encontrado! Verificar conexiones.");
+    Serial.println("BMP180 no encontrado!");
   }
 
+  /* SHARP */
   pinMode(SHARP_LED_PIN, OUTPUT);
-
   digitalWrite(SHARP_LED_PIN, SHARP_LED_OFF_LEVEL);
 
+  /* ADC */
   analogReadResolution(12);
-
-  Serial.println("Iniciando prueba de sensores");
-  Serial.print("I2C OK en SDA=");
-  Serial.print(BMP180_SDA_PIN);
-  Serial.print(" SCL=");
-  Serial.println(BMP180_SCL_PIN);
-  Serial.println("ADC OK para MQ-2 y Sharp");
-  Serial.print("GPIO Sharp OK en GPIO=");
-  Serial.println(SHARP_LED_PIN);
-  Serial.println();
+  Serial.println("Sistema listo.");
 }
 
-void loop()
-{
+void loop() {
   float temperatureC = 0.0f;
   float pressurePa = 0.0f;
 
@@ -131,31 +103,28 @@ void loop()
 
   const int mq2Raw = readMq2Raw();
   const int sharpRaw = readSharpRaw();
-  if (bmp180Available) {
-    Serial.print("BMP180 -> Temp: ");
-    Serial.print(temperatureC, 2);
-    Serial.print(" C | Presion: ");
-    Serial.print(pressurePa, 0);
-    Serial.println(" Pa");
-  } else {
-    Serial.println("BMP180 sin respuesta");
+
+  // Mostrar en Serial
+  Serial.printf("T: %.2f C | P: %.2f Pa | MQ2: %d | Sharp: %d\n", 
+                temperatureC, pressurePa, mq2Raw, sharpRaw);
+
+  if (Firebase.ready()) {
+    FirebaseJson json;
+    json.set("temperatura", temperatureC);
+    json.set("presion", pressurePa);
+    json.set("mq2", mq2Raw);
+    json.set("sharp", sharpRaw);
+    
+    // ESTO AGREGA LA FECHA Y HORA DEL SERVIDOR (Server Value Timestamp)
+    // Se guarda como milisegundos desde 1970 (Unix Epoch)
+    json.set("timestamp/.sv", "timestamp"); 
+
+    if (Firebase.pushJSON(fbdo, "/historial_sensores", json)) {
+      Serial.println("Dato guardado con marca de tiempo.");
+    } else {
+      Serial.println(fbdo.errorReason());
+    }
   }
-
-  /* Muestra el valor crudo del MQ-2 y un voltaje aproximado para referencia. */
-  Serial.print("MQ-2  -> ADC: ");
-  Serial.print(mq2Raw);
-  Serial.print(" | Volt aprox: ");
-  Serial.print(adcRawToVoltage(mq2Raw), 2);
-  Serial.println(" V");
-
-  /* Muestra el valor crudo del Sharp y un voltaje aproximado para referencia. */
-  Serial.print("SHARP -> ADC: ");
-  Serial.print(sharpRaw);
-  Serial.print(" | Volt aprox: ");
-  Serial.print(adcRawToVoltage(sharpRaw), 2);
-  Serial.println(" V");
-
-  Serial.println();
 
   delay(LOOP_DELAY_MS);
 }
