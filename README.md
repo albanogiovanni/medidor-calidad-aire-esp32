@@ -39,7 +39,9 @@ El repositorio contempla:
 ├── .gitignore
 ├── firmware/
 │   └── esp32/
-│       └── test_sensores.ino
+│       └── medidor_calidad_aire/
+│           ├── medidor_calidad_aire.ino
+│           └── keys.example.h
 ├── docs/
 │   ├── informes/
 │   │   ├── 01_Informe_de_Viabilidad.pdf

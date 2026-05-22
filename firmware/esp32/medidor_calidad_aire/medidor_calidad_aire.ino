@@ -1,15 +1,9 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
-#include <WiFi.h>
-#include <FirebaseESP32.h>
-#include "keys.h"
+#include "WifiConnection.h"
+#include "FirebaseService.h"
 
-// Objetos de Firebase
-FirebaseData fbdo;
-FirebaseAuth auth;
-FirebaseConfig config;
-
-/* Pines y sensores originales */
+/* Pines y sensores */
 static const int BMP180_SDA_PIN = 21;
 static const int BMP180_SCL_PIN = 22;
 static Adafruit_BMP085 bmp;
@@ -27,7 +21,7 @@ static const unsigned long LOOP_DELAY_MS = 5000;
 
 static bool bmp180Available = false;
 
-/* Funciones de lectura originales */
+/* Funciones de lectura */
 static float adcRawToVoltage(int raw) {
   return (raw / ADC_MAX_READING) * ADC_VREF_ESTIMATE;
 }
@@ -61,20 +55,8 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  // Conexión Wi-Fi
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Conectando a WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nConectado!");
-
-  // Configuración Firebase
-  config.host = FIREBASE_HOST;
-  config.signer.tokens.legacy_token = FIREBASE_AUTH;
-  Firebase.begin(&config, &auth);
-  Firebase.reconnectWiFi(true);
+  connectWiFi();
+  setupFirebase();
 
   /* BMP180 */
   Wire.begin(BMP180_SDA_PIN, BMP180_SCL_PIN);
@@ -88,8 +70,10 @@ void setup() {
   pinMode(SHARP_LED_PIN, OUTPUT);
   digitalWrite(SHARP_LED_PIN, SHARP_LED_OFF_LEVEL);
 
-  /* ADC */
   analogReadResolution(12);
+  analogSetPinAttenuation(MQ2_ADC_PIN, ADC_11db);
+  analogSetPinAttenuation(SHARP_ADC_PIN, ADC_11db);
+
   Serial.println("Sistema listo.");
 }
 
@@ -103,28 +87,29 @@ void loop() {
 
   const int mq2Raw = readMq2Raw();
   const int sharpRaw = readSharpRaw();
+  const float mq2Voltage = adcRawToVoltage(mq2Raw);
+  const float sharpVoltage = adcRawToVoltage(sharpRaw);
 
-  // Mostrar en Serial
-  Serial.printf("T: %.2f C | P: %.2f Pa | MQ2: %d | Sharp: %d\n", 
-                temperatureC, pressurePa, mq2Raw, sharpRaw);
-
-  if (Firebase.ready()) {
-    FirebaseJson json;
-    json.set("temperatura", temperatureC);
-    json.set("presion", pressurePa);
-    json.set("mq2", mq2Raw);
-    json.set("sharp", sharpRaw);
-    
-    // ESTO AGREGA LA FECHA Y HORA DEL SERVIDOR (Server Value Timestamp)
-    // Se guarda como milisegundos desde 1970 (Unix Epoch)
-    json.set("timestamp/.sv", "timestamp"); 
-
-    if (Firebase.pushJSON(fbdo, "/historial_sensores", json)) {
-      Serial.println("Dato guardado con marca de tiempo.");
-    } else {
-      Serial.println(fbdo.errorReason());
-    }
+  if (bmp180Available) {
+    Serial.printf("BMP180: OK | Temp: %.2f C | Presion: %.2f Pa\n", temperatureC, pressurePa);
+  } else {
+    Serial.println("BMP180: sin respuesta");
   }
+
+  Serial.printf("MQ2: ADC %d | Voltaje aprox: %.2f V\n", mq2Raw, mq2Voltage);
+  Serial.printf("Sharp: ADC %d | Voltaje aprox: %.2f V\n", sharpRaw, sharpVoltage);
+
+  uploadSensorReadings(
+    bmp180Available,
+    temperatureC,
+    pressurePa,
+    mq2Raw,
+    mq2Voltage,
+    sharpRaw,
+    sharpVoltage
+  );
+
+  Serial.println();
 
   delay(LOOP_DELAY_MS);
 }
