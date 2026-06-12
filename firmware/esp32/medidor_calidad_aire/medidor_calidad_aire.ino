@@ -17,7 +17,7 @@ static const int SHARP_LED_OFF_LEVEL = HIGH;
 static const float ADC_MAX_READING = 4095.0f;
 static const float ADC_VREF_ESTIMATE = 3.3f;
 static const int MQ2_SAMPLE_COUNT = 8;
-static const unsigned long LOOP_DELAY_MS = 60000;
+static const unsigned long LOOP_DELAY_MS = 10000;
 
 static bool bmp180Available = false;
 
