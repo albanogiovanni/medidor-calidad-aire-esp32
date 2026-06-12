@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitor de Calidad de Aire</title>
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#16213e">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -146,6 +146,20 @@
       line-height: 1.4;
     }
     .qr-btn:hover { background: #e8e8e8; }
+    .notif-btn {
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      vertical-align: middle;
+      margin-left: 4px;
+      line-height: 1.4;
+    }
+    .notif-btn:hover { background: #e8e8e8; }
+    .notif-btn.granted { border-color: #28a745; }
+    .notif-btn.denied { border-color: #dc3545; }
     .qr-overlay {
       display: none;
       position: fixed;
@@ -185,7 +199,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Monitor de Calidad de Aire <button id="qr-btn" class="qr-btn" title="Mostrar QR">📱</button></h1>
+    <h1>Monitor de Calidad de Aire <button id="notif-btn" class="notif-btn" title="Activar alertas">🔔</button> <button id="qr-btn" class="qr-btn" title="Mostrar QR">📱</button></h1>
     <p class="subtitle">Datos del dispositivo ESP32 &middot; Firebase Realtime Database</p>
 
     <div id="status" class="status loading">Cargando datos...</div>
@@ -427,10 +441,29 @@
       if (Notification.permission === 'granted') {
         new Notification('\u26a0\ufe0f Alerta - Calidad de Aire', {
           body: name + ' en nivel ROJO: ' + value.toFixed(3) + 'V',
-          icon: '/icons/icon-192.png'
+          icon: 'icons/icon-192.png'
         });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission();
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().then(updateNotifBtn);
+      }
+    }
+
+    function updateNotifBtn() {
+      const btn = document.getElementById('notif-btn');
+      if (!btn) return;
+      if (!('Notification' in window)) { btn.style.display = 'none'; return; }
+      if (Notification.permission === 'granted') {
+        btn.className = 'notif-btn granted';
+        btn.title = 'Alertas activadas';
+        btn.textContent = '\uD83D\uDD14';
+      } else if (Notification.permission === 'denied') {
+        btn.className = 'notif-btn denied';
+        btn.title = 'Alertas bloqueadas';
+        btn.textContent = '\uD83D\uDD15';
+      } else {
+        btn.className = 'notif-btn';
+        btn.title = 'Activar alertas de sem\u00e1foro rojo';
+        btn.textContent = '\uD83D\uDD14';
       }
     }
 
@@ -485,12 +518,21 @@
 
     initQR();
 
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    const notifBtn = document.getElementById('notif-btn');
+    if (notifBtn) {
+      updateNotifBtn();
+      notifBtn.onclick = () => {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().then(updateNotifBtn);
+        } else if (Notification.permission === 'denied') {
+          alert('Notificaciones bloqueadas. Habilitalas desde la configuraci\u00f3n del navegador.');
+        }
+      };
     }
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
+      navigator.serviceWorker.register('sw.js');
     }
   </script>
 </body>
