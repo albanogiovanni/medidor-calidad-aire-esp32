@@ -32,12 +32,14 @@
       gap: 12px;
       margin-bottom: 24px;
     }
-    .stat-card {
+    .card {
       background: #fff;
       border-radius: 10px;
       padding: 16px;
-      text-align: center;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .stat-card {
+      text-align: center;
     }
     .stat-card .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
     .stat-card .value { font-size: 1.6rem; font-weight: 700; margin-top: 4px; }
@@ -52,10 +54,6 @@
       margin-bottom: 24px;
     }
     .chart-card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       position: relative;
     }
     .chart-card h3 {
@@ -75,10 +73,6 @@
     .chart-card.empty .no-data { display: flex; }
     .chart-card.empty canvas { display: none; }
     .table-wrap {
-      background: #fff;
-      border-radius: 10px;
-      padding: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       overflow-x: auto;
       margin-bottom: 24px;
     }
@@ -107,6 +101,36 @@
     .status.ok { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
     .status.empty { background: #cce5ff; color: #004085; }
+    .traffic-lights {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .traffic-light {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      font-size: 0.85rem;
+    }
+    .traffic-light .tl-label { font-weight: 600; color: #555; }
+    .traffic-light .tl-circle {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: inline-block;
+      border: 2px solid #ccc;
+      flex-shrink: 0;
+    }
+    .traffic-light .tl-circle.green { background: #28a745; border-color: #28a745; box-shadow: 0 0 6px #28a74566; }
+    .traffic-light .tl-circle.yellow { background: #ffc107; border-color: #ffc107; box-shadow: 0 0 6px #ffc10766; }
+    .traffic-light .tl-circle.red { background: #dc3545; border-color: #dc3545; box-shadow: 0 0 6px #dc354566; }
+    .traffic-light .tl-circle.gray { background: #e0e0e0; border-color: #bbb; }
+    .traffic-light .tl-value { color: #888; font-size: 0.8rem; }
     @media (max-width: 600px) {
       .charts { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(2, 1fr); }
@@ -120,21 +144,34 @@
 
     <div id="status" class="status loading">Cargando datos...</div>
 
+    <div class="traffic-lights">
+      <div class="traffic-light" id="tl-mq2">
+        <span class="tl-label">MQ-2</span>
+        <span class="tl-circle gray" id="circle-mq2"></span>
+        <span class="tl-value" id="tlval-mq2">-- V</span>
+      </div>
+      <div class="traffic-light" id="tl-sharp">
+        <span class="tl-label">Sharp</span>
+        <span class="tl-circle gray" id="circle-sharp"></span>
+        <span class="tl-value" id="tlval-sharp">-- V</span>
+      </div>
+    </div>
+
     <div class="stats">
-      <div class="stat-card"><div class="label">Temperatura</div><div class="value temp" id="stat-temp">-- <span class="unit">°C</span></div></div>
-      <div class="stat-card"><div class="label">Presi&oacute;n</div><div class="value pres" id="stat-pres">-- <span class="unit">Pa</span></div></div>
-      <div class="stat-card"><div class="label">MQ-2</div><div class="value mq2" id="stat-mq2">-- <span class="unit">V</span></div></div>
-      <div class="stat-card"><div class="label">Sharp</div><div class="value sharp" id="stat-sharp">-- <span class="unit">V</span></div></div>
+      <div class="stat-card card"><div class="label">Temperatura</div><div class="value temp" id="stat-temp">-- <span class="unit">°C</span></div></div>
+      <div class="stat-card card"><div class="label">Presi&oacute;n</div><div class="value pres" id="stat-pres">-- <span class="unit">Pa</span></div></div>
+      <div class="stat-card card"><div class="label">MQ-2</div><div class="value mq2" id="stat-mq2">-- <span class="unit">V</span></div></div>
+      <div class="stat-card card"><div class="label">Sharp</div><div class="value sharp" id="stat-sharp">-- <span class="unit">V</span></div></div>
     </div>
 
     <div class="charts">
-      <div class="chart-card" id="card-chartTemp"><h3>Temperatura (&deg;C)</h3><canvas id="chartTemp"></canvas><div class="no-data">BMP180 no disponible</div></div>
-      <div class="chart-card" id="card-chartPres"><h3>Presi&oacute;n (Pa)</h3><canvas id="chartPres"></canvas><div class="no-data">BMP180 no disponible</div></div>
-      <div class="chart-card" id="card-chartMq2"><h3>MQ-2 (V)</h3><canvas id="chartMq2"></canvas><div class="no-data">Sin datos</div></div>
-      <div class="chart-card" id="card-chartSharp"><h3>Sharp (V)</h3><canvas id="chartSharp"></canvas><div class="no-data">Sin datos</div></div>
+      <div class="chart-card card" id="card-chartTemp"><h3>Temperatura (&deg;C)</h3><canvas id="chartTemp"></canvas><div class="no-data">BMP180 no disponible</div></div>
+      <div class="chart-card card" id="card-chartPres"><h3>Presi&oacute;n (Pa)</h3><canvas id="chartPres"></canvas><div class="no-data">BMP180 no disponible</div></div>
+      <div class="chart-card card" id="card-chartMq2"><h3>MQ-2 (V)</h3><canvas id="chartMq2"></canvas><div class="no-data">Sin datos</div></div>
+      <div class="chart-card card" id="card-chartSharp"><h3>Sharp (V)</h3><canvas id="chartSharp"></canvas><div class="no-data">Sin datos</div></div>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap card">
       <h3>&Uacute;ltimas lecturas</h3>
       <table><thead><tr>
         <th>Hora</th>
@@ -152,6 +189,18 @@
     const MAX_POINTS = 80;
 
     let charts = {};
+
+    const STATS = [
+      { id: 'stat-temp',  key: 'temperatura_c', decimals: 1, unit: '°C', cond: r => r.bmp180_ok },
+      { id: 'stat-pres',  key: 'presion_pa',    decimals: 0, unit: 'Pa', cond: r => r.bmp180_ok },
+      { id: 'stat-mq2',   key: 'mq2_voltaje',   decimals: 3, unit: 'V'  },
+      { id: 'stat-sharp', key: 'sharp_voltaje',  decimals: 3, unit: 'V'  },
+    ];
+
+    const TRAFFIC_SENSORS = [
+      { id: 'mq2',   thresholds: { yellow: 0.5, red: 1.0 }  },
+      { id: 'sharp', thresholds: { yellow: 0.8, red: 1.5 }  },
+    ];
 
     function fmtTime(ts) {
       if (!ts) return '--';
@@ -238,29 +287,19 @@
       if (card) card.classList.add('empty');
     }
 
+    function setStat(last, { id, key, decimals, unit, cond }) {
+      const ok = !cond || cond(last);
+      const v = last[key];
+      document.getElementById(id).innerHTML =
+        (ok && v != null)
+          ? `${v.toFixed(decimals)} <span class="unit">${unit}</span>`
+          : `-- <span class="unit">${unit}</span>`;
+    }
+
     function updateStats(records) {
       const last = records[records.length - 1];
       if (!last) return;
-
-      document.getElementById('stat-temp').innerHTML =
-        (last.bmp180_ok && last.temperatura_c != null)
-          ? `${last.temperatura_c.toFixed(1)} <span class="unit">°C</span>`
-          : '-- <span class="unit">°C</span>';
-
-      document.getElementById('stat-pres').innerHTML =
-        (last.bmp180_ok && last.presion_pa != null)
-          ? `${last.presion_pa.toFixed(0)} <span class="unit">Pa</span>`
-          : '-- <span class="unit">Pa</span>';
-
-      document.getElementById('stat-mq2').innerHTML =
-        (last.mq2_voltaje != null)
-          ? `${last.mq2_voltaje.toFixed(3)} <span class="unit">V</span>`
-          : '-- <span class="unit">V</span>';
-
-      document.getElementById('stat-sharp').innerHTML =
-        (last.sharp_voltaje != null)
-          ? `${last.sharp_voltaje.toFixed(3)} <span class="unit">V</span>`
-          : '-- <span class="unit">V</span>';
+      STATS.forEach(s => setStat(last, s));
     }
 
     function updateTable(records) {
@@ -279,40 +318,38 @@
       }
     }
 
+    function updateChart(id, label, records, condFn, key, color, unit) {
+      const data = records.filter(condFn).map(r => ({ timestamp: r.timestamp, valor: r[key] }));
+      if (data.length) {
+        buildChart(id, label, data, color, unit);
+      } else {
+        clearChart(id);
+      }
+    }
+
     function updateCharts(records) {
-      const hasBmp = records.some(r => r.bmp180_ok && r.temperatura_c != null);
+      updateChart('chartTemp',  'Temperatura', records, r => r.bmp180_ok && r.temperatura_c != null, 'temperatura_c', '#e74c3c', '°C');
+      updateChart('chartPres',  'Presi\u00f3n',  records, r => r.bmp180_ok && r.presion_pa != null,    'presion_pa',    '#3498db', 'Pa');
+      updateChart('chartMq2',   'MQ-2',        records, r => r.mq2_voltaje != null,                   'mq2_voltaje',   '#e67e22', 'V');
+      updateChart('chartSharp', 'Sharp',       records, r => r.sharp_voltaje != null,                  'sharp_voltaje', '#9b59b6', 'V');
+    }
 
-      if (hasBmp) {
-        const tempData = records
-          .filter(r => r.bmp180_ok && r.temperatura_c != null)
-          .map(r => ({ timestamp: r.timestamp, valor: r.temperatura_c }));
-        const presData = records
-          .filter(r => r.bmp180_ok && r.presion_pa != null)
-          .map(r => ({ timestamp: r.timestamp, valor: r.presion_pa }));
-        if (tempData.length) buildChart('chartTemp', 'Temperatura', tempData, '#e74c3c', '°C');
-        if (presData.length) buildChart('chartPres', 'Presi\u00f3n', presData, '#3498db', 'Pa');
-      } else {
-        clearChart('chartTemp');
-        clearChart('chartPres');
-      }
+    function getLevel(value, thresholds) {
+      if (value == null) return 'gray';
+      if (value >= thresholds.red) return 'red';
+      if (value >= thresholds.yellow) return 'yellow';
+      return 'green';
+    }
 
-      const mq2Data = records
-        .filter(r => r.mq2_voltaje != null)
-        .map(r => ({ timestamp: r.timestamp, valor: r.mq2_voltaje }));
-      const sharpData = records
-        .filter(r => r.sharp_voltaje != null)
-        .map(r => ({ timestamp: r.timestamp, valor: r.sharp_voltaje }));
-
-      if (mq2Data.length) {
-        buildChart('chartMq2', 'MQ-2', mq2Data, '#e67e22', 'V');
-      } else {
-        clearChart('chartMq2');
-      }
-
-      if (sharpData.length) {
-        buildChart('chartSharp', 'Sharp', sharpData, '#9b59b6', 'V');
-      } else {
-        clearChart('chartSharp');
+    function updateTrafficLights(records) {
+      const last = records[records.length - 1];
+      if (!last) return;
+      for (const s of TRAFFIC_SENSORS) {
+        const value = last[s.id + '_voltaje'];
+        const level = getLevel(value, s.thresholds);
+        document.getElementById('circle-' + s.id).className = 'tl-circle ' + level;
+        document.getElementById('tlval-' + s.id).textContent =
+          value != null ? value.toFixed(3) + ' V' : '-- V';
       }
     }
 
@@ -334,6 +371,7 @@
         }
 
         updateStats(records);
+        updateTrafficLights(records);
         updateCharts(records);
         updateTable(records);
         setStatus(
