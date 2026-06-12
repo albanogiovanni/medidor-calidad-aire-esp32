@@ -134,7 +134,7 @@
     .traffic-light .tl-circle.red { background: #dc3545; border-color: #dc3545; box-shadow: 0 0 6px #dc354566; }
     .traffic-light .tl-circle.gray { background: #e0e0e0; border-color: #bbb; }
     .traffic-light .tl-value { color: #888; font-size: 0.8rem; }
-    .qr-btn {
+    .hdr-btn {
       background: none;
       border: 1px solid #ccc;
       border-radius: 6px;
@@ -142,22 +142,11 @@
       font-size: 1.2rem;
       cursor: pointer;
       vertical-align: middle;
-      margin-left: 8px;
       line-height: 1.4;
     }
-    .qr-btn:hover { background: #e8e8e8; }
-    .notif-btn {
-      background: none;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 2px 8px;
-      font-size: 1.2rem;
-      cursor: pointer;
-      vertical-align: middle;
-      margin-left: 4px;
-      line-height: 1.4;
-    }
-    .notif-btn:hover { background: #e8e8e8; }
+    .hdr-btn:hover { background: #e8e8e8; }
+    .qr-btn { margin-left: 8px; }
+    .notif-btn { margin-left: 4px; }
     .notif-btn.granted { border-color: #28a745; }
     .notif-btn.denied { border-color: #dc3545; }
     .qr-overlay {
@@ -173,13 +162,16 @@
       background: #fff;
       border-radius: 12px;
       padding: 24px;
-      text-align: center;
       box-shadow: 0 8px 30px rgba(0,0,0,0.2);
       max-width: 300px;
     }
-    .qr-modal p { margin-bottom: 16px; color: #555; font-size: 0.9rem; }
+    .qr-modal-header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
+    .qr-modal p { margin-bottom: 16px; color: #555; font-size: 0.9rem; text-align: center; }
     .qr-close {
-      float: right;
       background: none;
       border: none;
       font-size: 1.3rem;
@@ -191,6 +183,19 @@
     .qr-close:hover { color: #333; }
     #qrcode { display: inline-block; }
     #qrcode canvas, #qrcode img { display: block; margin: 0 auto; }
+    .install-btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 10px;
+      background: #16213e;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .install-btn:hover { background: #1a2a5e; }
     @media (max-width: 600px) {
       .charts { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(2, 1fr); }
@@ -199,7 +204,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Monitor de Calidad de Aire <button id="notif-btn" class="notif-btn" title="Activar alertas">🔔</button> <button id="qr-btn" class="qr-btn" title="Mostrar QR">📱</button></h1>
+    <h1>Monitor de Calidad de Aire <button id="notif-btn" class="hdr-btn notif-btn" title="Activar alertas">🔔</button> <button id="qr-btn" class="hdr-btn qr-btn" title="Mostrar QR">📱</button></h1>
     <p class="subtitle">Datos del dispositivo ESP32 &middot; Firebase Realtime Database</p>
 
     <div id="status" class="status loading">Cargando datos...</div>
@@ -245,9 +250,12 @@
 
   <div id="qr-overlay" class="qr-overlay">
     <div class="qr-modal">
-      <button id="qr-close" class="qr-close">&times;</button>
+      <div class="qr-modal-header">
+        <button id="qr-close" class="qr-close">&times;</button>
+      </div>
       <p>Escane&aacute; el QR para abrir en tu celular</p>
       <div id="qrcode"></div>
+      <button id="install-btn" class="install-btn" style="display:none" onclick="installApp()">📲 Instalar app</button>
     </div>
   </div>
 
@@ -258,6 +266,7 @@
 
     let charts = {};
     let prevLevels = {};
+    let deferredPrompt = null;
 
     const STATS = [
       { id: 'stat-temp',  key: 'temperatura_c', decimals: 1, unit: '°C', cond: r => r.bmp180_ok },
@@ -453,15 +462,15 @@
       if (!btn) return;
       if (!('Notification' in window)) { btn.style.display = 'none'; return; }
       if (Notification.permission === 'granted') {
-        btn.className = 'notif-btn granted';
+        btn.className = 'hdr-btn notif-btn granted';
         btn.title = 'Alertas activadas';
         btn.textContent = '\uD83D\uDD14';
       } else if (Notification.permission === 'denied') {
-        btn.className = 'notif-btn denied';
+        btn.className = 'hdr-btn notif-btn denied';
         btn.title = 'Alertas bloqueadas';
         btn.textContent = '\uD83D\uDD15';
       } else {
-        btn.className = 'notif-btn';
+        btn.className = 'hdr-btn notif-btn';
         btn.title = 'Activar alertas de sem\u00e1foro rojo';
         btn.textContent = '\uD83D\uDD14';
       }
@@ -511,6 +520,8 @@
         const c = document.getElementById('qrcode');
         c.innerHTML = '';
         new QRCode(c, { text: window.location.href, width: 220, height: 220 });
+        const ib = document.getElementById('install-btn');
+        if (ib) ib.style.display = deferredPrompt ? 'block' : 'none';
       };
       close.onclick = () => { overlay.style.display = 'none'; };
       overlay.onclick = e => { if (e.target === overlay) overlay.style.display = 'none'; };
@@ -533,6 +544,29 @@
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
+    }
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const ib = document.getElementById('install-btn');
+      if (ib) ib.style.display = 'block';
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      const ib = document.getElementById('install-btn');
+      if (ib) ib.style.display = 'none';
+    });
+
+    function installApp() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        const ib = document.getElementById('install-btn');
+        if (ib) ib.style.display = 'none';
+      });
     }
   </script>
 </body>
