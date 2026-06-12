@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitor de Calidad de Aire</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#16213e">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -131,6 +134,49 @@
     .traffic-light .tl-circle.red { background: #dc3545; border-color: #dc3545; box-shadow: 0 0 6px #dc354566; }
     .traffic-light .tl-circle.gray { background: #e0e0e0; border-color: #bbb; }
     .traffic-light .tl-value { color: #888; font-size: 0.8rem; }
+    .qr-btn {
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      vertical-align: middle;
+      margin-left: 8px;
+      line-height: 1.4;
+    }
+    .qr-btn:hover { background: #e8e8e8; }
+    .qr-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .qr-modal {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+      max-width: 300px;
+    }
+    .qr-modal p { margin-bottom: 16px; color: #555; font-size: 0.9rem; }
+    .qr-close {
+      float: right;
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      cursor: pointer;
+      color: #888;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .qr-close:hover { color: #333; }
+    #qrcode { display: inline-block; }
+    #qrcode canvas, #qrcode img { display: block; margin: 0 auto; }
     @media (max-width: 600px) {
       .charts { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(2, 1fr); }
@@ -139,7 +185,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Monitor de Calidad de Aire</h1>
+    <h1>Monitor de Calidad de Aire <button id="qr-btn" class="qr-btn" title="Mostrar QR">📱</button></h1>
     <p class="subtitle">Datos del dispositivo ESP32 &middot; Firebase Realtime Database</p>
 
     <div id="status" class="status loading">Cargando datos...</div>
@@ -183,12 +229,21 @@
     </div>
   </div>
 
+  <div id="qr-overlay" class="qr-overlay">
+    <div class="qr-modal">
+      <button id="qr-close" class="qr-close">&times;</button>
+      <p>Escane&aacute; el QR para abrir en tu celular</p>
+      <div id="qrcode"></div>
+    </div>
+  </div>
+
   <script>
     const FIREBASE_URL = 'https://test-esp32-cad68-default-rtdb.firebaseio.com';
     const DATA_PATH = '/historial_sensores';
     const MAX_POINTS = 80;
 
     let charts = {};
+    let prevLevels = {};
 
     const STATS = [
       { id: 'stat-temp',  key: 'temperatura_c', decimals: 1, unit: '°C', cond: r => r.bmp180_ok },
@@ -198,8 +253,8 @@
     ];
 
     const TRAFFIC_SENSORS = [
-      { id: 'mq2',   thresholds: { yellow: 0.5, red: 1.0 }  },
-      { id: 'sharp', thresholds: { yellow: 0.8, red: 1.5 }  },
+      { id: 'mq2',   name: 'MQ-2',  thresholds: { yellow: 0.5, red: 1.2 } },
+      { id: 'sharp', name: 'Sharp', thresholds: { yellow: 0.8, red: 1.5 } },
     ];
 
     function fmtTime(ts) {
@@ -353,6 +408,32 @@
       }
     }
 
+    function checkAlerts(records) {
+      const last = records[records.length - 1];
+      if (!last) return;
+      for (const s of TRAFFIC_SENSORS) {
+        const value = last[s.id + '_voltaje'];
+        const level = getLevel(value, s.thresholds);
+        const prev = prevLevels[s.id];
+        if (level === 'red' && prev !== 'red' && prev != null) {
+          showAlert(s.name, value);
+        }
+        prevLevels[s.id] = level;
+      }
+    }
+
+    function showAlert(name, value) {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        new Notification('\u26a0\ufe0f Alerta - Calidad de Aire', {
+          body: name + ' en nivel ROJO: ' + value.toFixed(3) + 'V',
+          icon: '/icons/icon-192.png'
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+
     function setStatus(msg, type) {
       const el = document.getElementById('status');
       el.textContent = msg;
@@ -372,6 +453,7 @@
 
         updateStats(records);
         updateTrafficLights(records);
+        checkAlerts(records);
         updateCharts(records);
         updateTable(records);
         setStatus(
@@ -385,6 +467,31 @@
 
     refresh();
     setInterval(refresh, 30000);
+
+    function initQR() {
+      const btn = document.getElementById('qr-btn');
+      const overlay = document.getElementById('qr-overlay');
+      const close = document.getElementById('qr-close');
+      if (!btn || !overlay || !close) return;
+      btn.onclick = () => {
+        overlay.style.display = 'flex';
+        const c = document.getElementById('qrcode');
+        c.innerHTML = '';
+        new QRCode(c, { text: window.location.href, width: 220, height: 220 });
+      };
+      close.onclick = () => { overlay.style.display = 'none'; };
+      overlay.onclick = e => { if (e.target === overlay) overlay.style.display = 'none'; };
+    }
+
+    initQR();
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
   </script>
 </body>
 </html>
