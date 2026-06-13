@@ -36,12 +36,18 @@ El repositorio contempla:
 ```text
 .
 ├── README.md
+├── LICENSE
 ├── .gitignore
 ├── firmware/
 │   └── esp32/
 │       └── medidor_calidad_aire/
 │           ├── medidor_calidad_aire.ino
-│           └── keys.example.h
+│           ├── WifiManager.h
+│           ├── WifiManager.cpp
+│           ├── FirebaseService.h
+│           ├── FirebaseService.cpp
+│           ├── keys.example.h
+│           └── keys.h (git-ignored)
 ├── docs/
 │   ├── informes/
 │   │   ├── 01_Informe_de_Viabilidad.pdf

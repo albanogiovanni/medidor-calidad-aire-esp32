@@ -14,6 +14,7 @@ static DNSServer dnsServer;
 
 static String scanSSIDs[30];
 static int scanCount = 0;
+static volatile bool shouldRestart = false;
 
 static const char HTML_HEAD[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -97,6 +98,13 @@ static void scanNetworks() {
   WiFi.scanDelete();
 }
 
+bool hasWifiConfig(void) {
+  prefs.begin("wifi", true);
+  String ssid = prefs.getString("ssid", "");
+  prefs.end();
+  return ssid.length() > 0;
+}
+
 bool setupWiFi(void) {
   prefs.begin("wifi", true);
   String ssid = prefs.getString("ssid", "");
@@ -128,14 +136,7 @@ bool setupWiFi(void) {
   return false;
 }
 
-void startConfigPortal(void) {
-  scanNetworks();
-
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(AP_SSID);
-
-  dnsServer.start(53, "*", WiFi.softAPIP());
-
+static void registerRoutes() {
   server.on("/", sendPortalPage);
   server.on("/generate_204", sendPortalPage);
   server.on("/hotspot-detect.html", sendPortalPage);
@@ -159,10 +160,30 @@ void startConfigPortal(void) {
 )rawliteral");
 
     delay(2000);
-    ESP.restart();
+    shouldRestart = true;
   });
 
   server.onNotFound(sendPortalPage);
+}
+
+void startConfigPortal(void) {
+  scanNetworks();
+
+  WiFi.mode(WIFI_AP_STA);
+  if (!WiFi.softAP(AP_SSID)) {
+    Serial.println("Error al iniciar AP. Reiniciando en 2s...");
+    delay(2000);
+    ESP.restart();
+  }
+
+  dnsServer.start(53, "*", WiFi.softAPIP());
+
+  static bool routesRegistered = false;
+  if (!routesRegistered) {
+    routesRegistered = true;
+    registerRoutes();
+  }
+
   server.begin();
 
   Serial.println("\nPortal cautivo activo. Conectate a: CalidadAire-Config");
@@ -170,6 +191,7 @@ void startConfigPortal(void) {
   Serial.println(WiFi.softAPIP());
 
   while (true) {
+    if (shouldRestart) ESP.restart();
     dnsServer.processNextRequest();
     server.handleClient();
     delay(10);

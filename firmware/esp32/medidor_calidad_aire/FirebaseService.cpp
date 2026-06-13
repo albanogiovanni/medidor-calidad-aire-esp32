@@ -18,9 +18,7 @@ void uploadSensorReadings(
   bool bmp180Available,
   float temperatureC,
   float pressurePa,
-  int mq2Raw,
   float mq2Voltage,
-  int sharpRaw,
   float sharpVoltage
 ) {
   if (!Firebase.ready()) {
@@ -35,10 +33,7 @@ void uploadSensorReadings(
     json.set("presion_pa", pressurePa);
   }
 
-  // Lecturas indicativas pendientes de calibracion.
-  json.set("mq2_adc", mq2Raw);
   json.set("mq2_voltaje", mq2Voltage);
-  json.set("sharp_adc", sharpRaw);
   json.set("sharp_voltaje", sharpVoltage);
   json.set("timestamp/.sv", "timestamp");
 
