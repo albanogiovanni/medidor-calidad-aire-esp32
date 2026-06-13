@@ -145,6 +145,27 @@
       line-height: 1.4;
     }
     .hdr-btn:hover { background: #e8e8e8; }
+    .range-selector {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .range-btn {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .range-btn:hover { background: #f0f0f0; }
+    .range-btn.active {
+      background: #16213e;
+      color: #fff;
+      border-color: #16213e;
+    }
     .qr-btn { margin-left: 8px; }
     .notif-btn { margin-left: 4px; }
     .notif-btn.granted { border-color: #28a745; }
@@ -229,6 +250,12 @@
       <div class="stat-card card"><div class="label">Sharp</div><div class="value sharp" id="stat-sharp">-- <span class="unit">V</span></div></div>
     </div>
 
+    <div class="range-selector">
+      <button class="range-btn" data-range="15min">15 min</button>
+      <button class="range-btn active" data-range="1h">1 hora</button>
+      <button class="range-btn" data-range="24h">24 horas</button>
+    </div>
+
     <div class="charts">
       <div class="chart-card card" id="card-chartTemp"><h3>Temperatura (&deg;C)</h3><canvas id="chartTemp"></canvas><div class="no-data">BMP180 no disponible</div></div>
       <div class="chart-card card" id="card-chartPres"><h3>Presi&oacute;n (Pa)</h3><canvas id="chartPres"></canvas><div class="no-data">BMP180 no disponible</div></div>
@@ -262,9 +289,16 @@
   <script>
     const FIREBASE_URL = 'https://test-esp32-cad68-default-rtdb.firebaseio.com';
     const DATA_PATH = '/historial_sensores';
-    const MAX_POINTS = 80;
+
+    const RANGES = {
+      '15min': 15 * 60 * 1000,
+      '1h':    60 * 60 * 1000,
+      '24h':   24 * 60 * 60 * 1000,
+    };
 
     let charts = {};
+    let allRecords = [];
+    let currentRange = '1h';
     let prevLevels = {};
     let deferredPrompt = null;
 
@@ -305,7 +339,12 @@
       if (!data) return [];
       const records = Object.values(data);
       records.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      return records.slice(-MAX_POINTS);
+      return records;
+    }
+
+    function filterByRange(records, range) {
+      const cutoff = Date.now() - RANGES[range];
+      return records.filter(r => (r.timestamp || 0) >= cutoff);
     }
 
     function buildChart(id, label, data, color, yLabel) {
@@ -406,10 +445,11 @@
     }
 
     function updateCharts(records) {
-      updateChart('chartTemp',  'Temperatura', records, r => r.bmp180_ok && r.temperatura_c != null, 'temperatura_c', '#e74c3c', '°C');
-      updateChart('chartPres',  'Presi\u00f3n',  records, r => r.bmp180_ok && r.presion_pa != null,    'presion_pa',    '#3498db', 'Pa');
-      updateChart('chartMq2',   'MQ-2',        records, r => r.mq2_voltaje != null,                   'mq2_voltaje',   '#e67e22', 'V');
-      updateChart('chartSharp', 'Sharp',       records, r => r.sharp_voltaje != null,                  'sharp_voltaje', '#9b59b6', 'V');
+      const filtered = filterByRange(records, currentRange);
+      updateChart('chartTemp',  'Temperatura', filtered, r => r.bmp180_ok && r.temperatura_c != null, 'temperatura_c', '#e74c3c', '°C');
+      updateChart('chartPres',  'Presi\u00f3n',  filtered, r => r.bmp180_ok && r.presion_pa != null,    'presion_pa',    '#3498db', 'Pa');
+      updateChart('chartMq2',   'MQ-2',        filtered, r => r.mq2_voltaje != null,                   'mq2_voltaje',   '#e67e22', 'V');
+      updateChart('chartSharp', 'Sharp',       filtered, r => r.sharp_voltaje != null,                  'sharp_voltaje', '#9b59b6', 'V');
     }
 
     function getLevel(value, thresholds) {
@@ -486,21 +526,21 @@
       try {
         setStatus('Cargando datos...', 'loading');
         const data = await fetchData();
-        const records = parseRecords(data);
+        allRecords = parseRecords(data);
 
-        if (records.length === 0) {
+        if (allRecords.length === 0) {
           setStatus('No hay datos en Firebase. Esperando lecturas del ESP32...', 'empty');
           return;
         }
 
-        updateStats(records);
-        updateTrafficLights(records);
-        checkAlerts(records);
-        updateCharts(records);
-        updateTable(records);
+        updateStats(allRecords);
+        updateTrafficLights(allRecords);
+        checkAlerts(allRecords);
+        updateCharts(allRecords);
+        updateTable(allRecords);
         setStatus(
-          'Datos actualizados: ' + records.length + ' registros, ' +
-          '\u00faltima lectura ' + fmtTime(records[records.length - 1].timestamp), 'ok');
+          'Datos actualizados: ' + allRecords.length + ' registros, ' +
+          '\u00faltima lectura ' + fmtTime(allRecords[allRecords.length - 1].timestamp), 'ok');
       } catch (err) {
         console.error(err);
         setStatus('Error al conectar con Firebase: ' + err.message, 'error');
@@ -528,6 +568,17 @@
     }
 
     initQR();
+
+    document.querySelectorAll('.range-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentRange = btn.dataset.range;
+        if (allRecords.length > 0) {
+          updateCharts(allRecords);
+        }
+      });
+    });
 
     const notifBtn = document.getElementById('notif-btn');
     if (notifBtn) {
