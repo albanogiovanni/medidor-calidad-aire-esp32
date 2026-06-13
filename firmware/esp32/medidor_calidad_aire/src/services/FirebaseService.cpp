@@ -1,7 +1,7 @@
 #include "FirebaseService.h"
 #include <Arduino.h>
 #include <FirebaseESP32.h>
-#include "keys.h"
+#include "../../keys.h"
 
 static FirebaseData fbdo;
 static FirebaseAuth auth;

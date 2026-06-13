@@ -166,6 +166,7 @@ static void registerRoutes() {
   server.onNotFound(sendPortalPage);
 }
 
+// Portal cautivo: crea red WiFi propia con pagina de configuracion
 void startConfigPortal(void) {
   scanNetworks();
 

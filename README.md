@@ -42,10 +42,20 @@ El repositorio contempla:
 │   └── esp32/
 │       └── medidor_calidad_aire/
 │           ├── medidor_calidad_aire.ino
-│           ├── WifiManager.h
-│           ├── WifiManager.cpp
-│           ├── FirebaseService.h
-│           ├── FirebaseService.cpp
+│           ├── Config.h
+│           ├── src/
+│           │   ├── sensors/
+│           │   │   ├── BMP180Sensor.h
+│           │   │   ├── BMP180Sensor.cpp
+│           │   │   ├── MQ2Sensor.h
+│           │   │   ├── MQ2Sensor.cpp
+│           │   │   ├── SharpSensor.h
+│           │   │   └── SharpSensor.cpp
+│           │   └── services/
+│           │       ├── WifiManager.h
+│           │       ├── WifiManager.cpp
+│           │       ├── FirebaseService.h
+│           │       └── FirebaseService.cpp
 │           ├── keys.example.h
 │           └── keys.h (git-ignored)
 ├── docs/
@@ -62,9 +72,20 @@ El repositorio contempla:
 
 - `firmware/`: codigo y pruebas de firmware del proyecto
 - `firmware/esp32/`: implementaciones y pruebas dirigidas a la plataforma `ESP32`
+- `firmware/esp32/medidor_calidad_aire/src/sensors/`: modulos individuales para cada sensor
+- `firmware/esp32/medidor_calidad_aire/src/services/`: servicios de conectividad (WiFi, Firebase)
 - `docs/`: documentacion general del proyecto
 - `docs/informes/`: entregables e informes academicos
 - `assets/img/`: imagenes, diagramas o recursos visuales de apoyo
+
+## Arquitectura del Firmware
+
+El firmware esta organizado en modulos para facilitar su comprension:
+
+- **`Config.h`**: Constantes de configuracion (pines, tiempos, parametros)
+- **`sensors/`**: Cada sensor tiene su propio modulo con funciones `begin()` y `read()`
+- **`services/`**: Manejo de WiFi (incluye portal cautivo) y envio a Firebase
+- **`medidor_calidad_aire.ino`**: Archivo principal que orquesta todo el sistema
 
 ## Documentacion Disponible
 
