@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
-#include "WifiConnection.h"
+#include "WifiManager.h"
 #include "FirebaseService.h"
 
 /* Pines y sensores */
@@ -18,8 +18,13 @@ static const float ADC_MAX_READING = 4095.0f;
 static const float ADC_VREF_ESTIMATE = 3.3f;
 static const int MQ2_SAMPLE_COUNT = 8;
 static const unsigned long LOOP_DELAY_MS = 10000;
+static const unsigned long WIFI_RETRY_MS = 15000;
+
+static const int CONFIG_BUTTON_PIN = 0; // GPIO0 = boton BOOT
 
 static bool bmp180Available = false;
+static bool wifiConnected = false;
+static unsigned long lastWifiAttempt = 0;
 
 /* Funciones de lectura */
 static float adcRawToVoltage(int raw) {
@@ -55,8 +60,15 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  connectWiFi();
-  setupFirebase();
+  wifiConnected = setupWiFi();
+  if (wifiConnected) {
+    setupFirebase();
+  } else {
+    Serial.println("WiFi no disponible. Reintentando cada 15s.");
+    Serial.println("Presiona BOOT (GPIO0) para abrir portal de configuracion.");
+  }
+
+  pinMode(CONFIG_BUTTON_PIN, INPUT_PULLUP);
 
   /* BMP180 */
   Wire.begin(BMP180_SDA_PIN, BMP180_SCL_PIN);
@@ -78,6 +90,26 @@ void setup() {
 }
 
 void loop() {
+  // Boton BOOT (GPIO0) → activa portal cautivo
+  if (digitalRead(CONFIG_BUTTON_PIN) == LOW) {
+    delay(50);
+    if (digitalRead(CONFIG_BUTTON_PIN) == LOW) {
+      Serial.println("Boton presionado. Abriendo portal de configuracion...");
+      startConfigPortal();
+    }
+  }
+
+  // Reintentar WiFi cada 15s si esta caido
+  if (!wifiConnected && millis() - lastWifiAttempt >= WIFI_RETRY_MS) {
+    lastWifiAttempt = millis();
+    Serial.println("Reintentando WiFi...");
+    wifiConnected = setupWiFi();
+    if (wifiConnected) {
+      setupFirebase();
+      Serial.println("WiFi recuperado.");
+    }
+  }
+
   float temperatureC = 0.0f;
   float pressurePa = 0.0f;
 
@@ -99,15 +131,17 @@ void loop() {
   Serial.printf("MQ2: ADC %d | Voltaje aprox: %.2f V\n", mq2Raw, mq2Voltage);
   Serial.printf("Sharp: ADC %d | Voltaje aprox: %.2f V\n", sharpRaw, sharpVoltage);
 
-  uploadSensorReadings(
-    bmp180Available,
-    temperatureC,
-    pressurePa,
-    mq2Raw,
-    mq2Voltage,
-    sharpRaw,
-    sharpVoltage
-  );
+  if (wifiConnected) {
+    uploadSensorReadings(
+      bmp180Available,
+      temperatureC,
+      pressurePa,
+      mq2Raw,
+      mq2Voltage,
+      sharpRaw,
+      sharpVoltage
+    );
+  }
 
   Serial.println();
 
