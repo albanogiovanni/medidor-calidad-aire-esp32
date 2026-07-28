@@ -246,24 +246,6 @@ Acceder a la PWA desplegada. La interfaz muestra:
     └── img/                               # Diagramas y fotos del prototipo
 ```
 
-## Estado actual y próximos pasos
-
-### Funcionalidades implementadas
-
-- [x] Firmware modular para ESP32.
-- [x] Lectura de sensores BMP180, MQ-2 y Sharp GP2Y1014AU0F.
-- [x] Conexión WiFi con portal cautivo.
-- [x] Envío de datos a Firebase Realtime Database.
-- [x] Aplicación web progresiva con gráficos, semáforos y alertas.
-- [x] Reintentos automáticos de conexión.
-
-### Pendientes y mejoras futuras
-
-- [ ] Calibración de sensores y conversión a unidades físicas (por ejemplo, µg/m³ para material particulado).
-- [ ] Definición de umbrales de alerta basados en referencias técnicas o normativas.
-- [ ] Diseño e impresión de carcasa protectora para uso exterior.
-- [ ] Evaluación de autonomía con batería LiPo y optimización de consumo.
-- [ ] Verificación y procedimiento de calibración periódica.
 
 ## Licencia
 
